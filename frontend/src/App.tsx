@@ -13,7 +13,6 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
-  CircleHelp,
   Clock3,
   CloudUpload,
   Database,
@@ -235,29 +234,41 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="service-card">
-            <div>
+          <div className="service-card" role="status" aria-label="服务状态">
+            <div className="service-title">服务状态</div>
+            <div className="service-row">
               <span className={`status-dot ${connection}`} />
-              本地服务{" "}
+              <span>本地业务后端</span>
               <small>
                 {connection === "online"
-                  ? "已连接"
+                  ? "可访问"
                   : connection === "loading"
-                    ? "连接中"
-                    : "未连接"}
+                    ? "检查中"
+                    : "不可访问"}
               </small>
             </div>
-            <p>AutoDL 算法服务</p>
-            <span className="remote-status">尚未接入</span>
+            <p>提供网页所需的业务接口</p>
+            <div className="service-row">
+              <span
+                className={`status-dot ${connection === "online" && capabilities?.remote_ready ? "online" : "pending"}`}
+              />
+              <span>AutoDL 去噪</span>
+              <small>
+                {connection === "online"
+                  ? capabilities?.remote_ready
+                    ? "已就绪"
+                    : "未接入"
+                  : connection === "loading"
+                    ? "检查中"
+                    : "状态未知"}
+              </small>
+            </div>
+            <p>
+              {connection === "online" && !capabilities?.remote_ready
+                ? "当前可在本地校验与预览"
+                : "独立于本地后端的远端算法"}
+            </p>
           </div>
-          <button
-            className="help-button"
-            onClick={(event) => openHelp(event.currentTarget)}
-          >
-            <CircleHelp size={18} />
-            使用指南
-            <ArrowRight size={15} />
-          </button>
           <div className="local-user">
             <span className="avatar">
               <Terminal size={18} />
