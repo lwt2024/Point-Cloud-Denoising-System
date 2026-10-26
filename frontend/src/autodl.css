@@ -54,6 +54,39 @@
   color: #ba7c57;
   font-style: normal;
 }
+.connection-field > small {
+  font-size: 13px;
+  color: #7d9199;
+  line-height: 1.8;
+}
+.connection-fields > .full {
+  grid-column: 1 / -1;
+}
+.connection-direct-actions {
+  margin-top: 24px;
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.connection-direct-actions .primary {
+  font-size: 14px;
+  min-height: 44px;
+}
+.connection-direct-actions p {
+  font-size: 13px;
+  margin: 0;
+}
+.server-identity {
+  border-top: 1px solid #e5ece8;
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.server-identity summary {
+  color: #618a7c;
+  font-size: 14px;
+  cursor: pointer;
+}
 .connection-field input {
   height: 44px;
   font-size: 14px;

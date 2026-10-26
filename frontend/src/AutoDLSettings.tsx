@@ -20,12 +20,13 @@ import {
   type RemoteSnapshot,
 } from "./api";
 import "./autodl.css";
+import { parseSshCommand } from "./ssh-command";
 
 const initialConfig: RemoteConfig = {
   host: "",
   port: 22,
   username: "root",
-  auth_mode: "key",
+  auth_mode: "password",
   private_key_path: "",
   known_hosts_path: "",
   host_fingerprint: "",
@@ -44,7 +45,12 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
   const [snapshot, setSnapshot] = useState<RemoteSnapshot | null>(null);
   const [form, setForm] = useState<RemoteConfig>(initialConfig);
   const [saved, setSaved] = useState<RemoteConfig | null>(null);
-  const [busy, setBusy] = useState<"load" | "save" | "test" | null>(null);
+  const [busy, setBusy] = useState<"load" | "save" | "test" | "connect" | null>(
+    null,
+  );
+  const [sshCommand, setSshCommand] = useState("");
+  const [commandError, setCommandError] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [bootstrap, setBootstrap] = useState(false);
   const [message, setMessage] = useState("");
@@ -55,16 +61,19 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
     return () => window.clearInterval(interval);
   }, []);
   const checkStatus =
-    busy === "test"
+    busy === "test" || busy === "connect"
       ? "testing"
       : snapshot?.last_check &&
-          ["ready", "failed"].includes(snapshot.status) &&
+          ["ready", "connected", "failed"].includes(snapshot.status) &&
           now - Date.parse(snapshot.last_check.checked_at) > 300_000
         ? "stale"
         : snapshot?.status;
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
 
-  async function request(action: "load" | "save" | "test", event?: FormEvent) {
+  async function request(
+    action: "load" | "save" | "test" | "connect",
+    event?: FormEvent,
+  ) {
     event?.preventDefault();
     setBusy(action);
     setError("");
@@ -75,24 +84,44 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
         token.trim(),
         action === "load" ? "GET" : action === "save" ? "PUT" : "POST",
         action === "save" ? form : undefined,
+        action === "test" || action === "connect"
+          ? {
+              password,
+              scope: action === "connect" ? "connection" : "deployment",
+              config: action === "connect" ? form : undefined,
+            }
+          : undefined,
       );
       setSnapshot(data);
       setNow(Date.now());
       setSaved(data.config);
-      setForm(data.config || initialConfig);
+      setForm(
+        data.config
+          ? { ...data.config, auth_mode: "password", private_key_path: "" }
+          : initialConfig,
+      );
       setPinConfirmed(false);
       setMessage(
         action === "save"
           ? "配置已保存。请重新测试，以更新远端服务状态。"
-          : action === "test"
+          : action === "test" || action === "connect"
             ? data.last_check?.message || "检查完成"
             : "管理员验证通过",
       );
-      if (action === "test" && !data.last_check?.success) {
+      if (
+        (action === "test" || action === "connect") &&
+        !data.last_check?.success
+      ) {
         setMessage("");
         setError(data.last_check?.message || "连接检查未通过");
       }
       onChange();
+      if (action === "test" || action === "connect")
+        window.requestAnimationFrame(() =>
+          document
+            .getElementById("connection-report")
+            ?.scrollIntoView({ block: "start", behavior: "smooth" }),
+        );
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "无法访问本地后端");
       if (
@@ -130,6 +159,10 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
           placeholder={placeholder}
           disabled={!!busy}
           onChange={(event) => {
+            if (["host", "port", "username"].includes(name)) {
+              setSshCommand("");
+              setCommandError("");
+            }
             setForm((f) => ({
               ...f,
               [name]:
@@ -222,6 +255,9 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
               onClick={() => {
                 setSnapshot(null);
                 setToken("");
+                setPassword("");
+                setSshCommand("");
+                setCommandError("");
                 setForm(initialConfig);
                 setSaved(null);
                 setMessage("");
@@ -243,6 +279,48 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
                 </span>
               </div>
               <div className="connection-fields">
+                <label className="connection-field full">
+                  <span>SSH 登录命令（可直接粘贴）</span>
+                  <input
+                    className="text-input"
+                    aria-label="SSH 登录命令"
+                    autoComplete="off"
+                    spellCheck={false}
+                    disabled={!!busy}
+                    value={sshCommand}
+                    placeholder="ssh -p 30901 root@connect.example.com"
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setSshCommand(value);
+                      if (!value.trim()) {
+                        setCommandError("");
+                        return;
+                      }
+                      try {
+                        setForm((current) => ({
+                          ...current,
+                          ...parseSshCommand(value),
+                          auth_mode: "password",
+                        }));
+                        setCommandError("");
+                      } catch (failure) {
+                        setCommandError(
+                          failure instanceof Error
+                            ? failure.message
+                            : "SSH 命令无效",
+                        );
+                      }
+                    }}
+                  />
+                  <small>
+                    自动填入下方主机、端口与用户名；仅解析连接信息，不执行粘贴的命令。
+                  </small>
+                </label>
+                {commandError && (
+                  <div className="error-message full" role="alert">
+                    {commandError}
+                  </div>
+                )}
                 {field(
                   "host",
                   "SSH 主机",
@@ -255,37 +333,79 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
                   <span>认证方式</span>
                   <div className="connection-value">
                     <KeyRound size={15} />
-                    SSH 私钥
+                    SSH 密码
                   </div>
                 </div>
-                {field(
-                  "private_key_path",
-                  "本机私钥文件路径",
-                  "C:/Users/你的用户名/.ssh/id_ed25519",
-                  true,
-                  true,
-                )}
-                {field(
-                  "host_fingerprint",
-                  "已核验服务器 SHA256 指纹",
-                  "SHA256:…（或使用下方 known_hosts 文件）",
-                  false,
-                  true,
-                )}
-                {field(
-                  "known_hosts_path",
-                  "本机 known_hosts 文件路径（可选）",
-                  "C:/Users/你的用户名/.ssh/known_hosts",
-                  false,
-                  true,
-                )}
+                <label className="connection-field full">
+                  <span>
+                    SSH 登录密码 <i>*</i>
+                  </span>
+                  <input
+                    className="text-input"
+                    aria-label="SSH 登录密码"
+                    type="password"
+                    autoComplete="off"
+                    maxLength={4096}
+                    disabled={!!busy}
+                    value={password}
+                    placeholder="输入 AutoDL 服务器的 SSH 密码"
+                    onChange={(event) => setPassword(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        if (password && form.host && !commandError && !busy)
+                          void request("connect");
+                      }
+                    }}
+                  />
+                </label>
               </div>
+              <div className="connection-direct-actions">
+                <button
+                  className="primary"
+                  type="button"
+                  disabled={
+                    !!busy ||
+                    !password ||
+                    !form.host.trim() ||
+                    !!commandError ||
+                    form.port < 1 ||
+                    form.port > 65535
+                  }
+                  onClick={() => void request("connect")}
+                >
+                  {busy === "connect" ? (
+                    <LoaderCircle size={16} className="spin" />
+                  ) : (
+                    <PlugZap size={16} />
+                  )}
+                  {busy === "connect" ? "正在连接…" : "连接服务器"}
+                </button>
+                <p>保存连接信息并验证 SSH / SFTP，无需先填写算法或模型路径。</p>
+              </div>
+              <details className="server-identity">
+                <summary>服务器身份核验（首次连接时确认）</summary>
+                <div className="connection-fields">
+                  {field(
+                    "host_fingerprint",
+                    "已核验服务器 SHA256 指纹",
+                    "SHA256:…（或使用下方 known_hosts 文件）",
+                    false,
+                    true,
+                  )}
+                  {field(
+                    "known_hosts_path",
+                    "本机 known_hosts 文件路径（可选）",
+                    "C:/Users/你的用户名/.ssh/known_hosts",
+                    false,
+                    true,
+                  )}
+                </div>
+              </details>
               <div className="connection-hint">
                 <ShieldCheck size={16} />
                 <p>
-                  私钥只由本地后端读取，不上传到浏览器。加密私钥的口令请在 .env
-                  配置 AUTODL_KEY_PASSPHRASE 并重启后端。当前口令：
-                  {snapshot.passphrase_configured ? "已配置" : "未配置"}。
+                  密码仅保留在当前页面内存，并在连接请求中发送给本机后端；不写入配置文件、日志或浏览器存储，也不会由接口返回。锁定或刷新页面后需重新输入。
                 </p>
               </div>
             </section>
@@ -364,7 +484,7 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
               <button
                 className="primary"
                 type="button"
-                disabled={!!busy || dirty || !saved}
+                disabled={!!busy || dirty || !saved || !password}
                 onClick={() => void request("test")}
               >
                 {busy === "test" ? (
@@ -379,7 +499,7 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
             </div>
           </form>
           {snapshot.last_check && (
-            <section className="card connection-report">
+            <section className="card connection-report" id="connection-report">
               <div className="section-heading">
                 <h2>
                   {snapshot.last_check.success ? (

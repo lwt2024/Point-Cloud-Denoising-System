@@ -267,3 +267,52 @@ def test_total_timeout_closes_blocked_connection(tmp_path, monkeypatch):
     )
     assert report["code"] == "check_timeout"
     assert report["success"] is False
+
+
+def test_password_request_never_persists_or_returns_password(tmp_path):
+    app = create_app(settings(tmp_path))
+    connector = MagicMock()
+    connector.check.return_value = {
+        "success": True,
+        "scope": "connection",
+        "code": "connected",
+        "message": "ok",
+        "checks": [],
+        "duration_ms": 1,
+    }
+    app.state.remote.connector = connector
+    secret = "request-only-sensitive-password"
+    with TestClient(app) as client:
+        result = client.post(
+            "/api/admin/autodl/test",
+            headers=HEADERS,
+            json={
+                "password": secret,
+                "scope": "connection",
+                "config": config(auth_mode="password", private_key_path="").model_dump(),
+            },
+        )
+        assert result.status_code == 200
+        assert result.json()["status"] == "connected"
+        assert secret not in result.text
+        assert client.get("/api/capabilities").json()["remote_ready"] is False
+        assert secret not in client.get("/api/admin/autodl", headers=HEADERS).text
+        assert connector.check.call_args.kwargs["password"].get_secret_value() == secret
+    assert secret not in app.state.remote.path.read_text(encoding="utf-8")
+    assert secret not in app.state.remote.report_path.read_text(encoding="utf-8")
+
+
+def test_invalid_secret_is_not_echoed_by_validation(tmp_path):
+    with TestClient(create_app(settings(tmp_path))) as client:
+        secret = "must-not-be-reflected"
+        response = client.post(
+            "/api/admin/autodl/test", headers=HEADERS, json={"password": {"secret": secret}}
+        )
+        assert response.status_code == 422
+        assert secret not in response.text
+        oversized = "sensitive-long-password-" * 300
+        response = client.post(
+            "/api/admin/autodl/test", headers=HEADERS, json={"password": oversized}
+        )
+        assert response.status_code == 422
+        assert "sensitive-long-password" not in response.text

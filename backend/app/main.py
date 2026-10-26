@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.autodl import RemoteConfig, RemoteError, RemoteStore
+from app.autodl import ConnectionRequest, RemoteConfig, RemoteError, RemoteStore
 from app.config import Settings, load_settings
 from app.database import initialize_database
 from app.domain import TaskStatus
@@ -30,6 +32,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Content-Type", "Authorization"],
     )
     app.state.remote = remote
+
+    @app.exception_handler(RequestValidationError)
+    async def safe_validation_error(request: Request, error: RequestValidationError):
+        # Pydantic's default validation response echoes input, including invalid secrets.
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": {
+                    "code": "validation",
+                    "message": "配置格式无效，请检查主机、端口及输入字段。",
+                }
+            },
+        )
+
     bearer = HTTPBearer(auto_error=False)
 
     def require_admin(
@@ -101,8 +117,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return remote_operation(save)
 
     @app.post("/api/admin/autodl/test", dependencies=[Depends(require_admin)])
-    def test_autodl():
-        remote_operation(remote.test)
+    def test_autodl(payload: ConnectionRequest | None = None):
+        payload = payload or ConnectionRequest()
+        remote_operation(lambda: remote.test(payload.password, payload.scope, payload.config))
         return remote_operation(admin_snapshot)
 
     @app.get("/api/health")

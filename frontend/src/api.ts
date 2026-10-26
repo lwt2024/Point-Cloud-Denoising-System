@@ -13,6 +13,7 @@ export type RemoteStatus =
   | "untested"
   | "testing"
   | "ready"
+  | "connected"
   | "failed"
   | "stale"
   | "invalid";
@@ -21,6 +22,7 @@ export const remoteStatusLabels: Record<RemoteStatus, string> = {
   untested: "待测试",
   testing: "检查中",
   ready: "检查通过",
+  connected: "连接通过",
   failed: "检查失败",
   stale: "需重新测试",
   invalid: "配置异常",
@@ -29,7 +31,7 @@ export interface RemoteConfig {
   host: string;
   port: number;
   username: string;
-  auth_mode: "key";
+  auth_mode: "key" | "password";
   private_key_path: string;
   known_hosts_path: string;
   host_fingerprint: string;
@@ -74,6 +76,11 @@ export async function remoteRequest(
   token: string,
   method: "GET" | "PUT" | "POST",
   config?: RemoteConfig,
+  connection?: {
+    password: string;
+    scope: "connection" | "deployment";
+    config?: RemoteConfig;
+  },
 ): Promise<RemoteSnapshot> {
   const response = await fetch(
     `/api/admin/autodl${method === "POST" ? "/test" : ""}`,
@@ -83,7 +90,12 @@ export async function remoteRequest(
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: config ? JSON.stringify(config) : undefined,
+      body:
+        method === "POST"
+          ? JSON.stringify(connection || {})
+          : config
+            ? JSON.stringify(config)
+            : undefined,
     },
   );
   const data = await response.json().catch(() => null);

@@ -10,6 +10,7 @@ from pathlib import Path
 
 import paramiko
 import pytest
+from pydantic import SecretStr
 
 from app.autodl import AutoDLConnector, RemoteConfig, fingerprint
 from app.config import Settings
@@ -59,9 +60,18 @@ class SSHServer(paramiko.ServerInterface):
     def __init__(self, user_key):
         self.user_key = user_key
         self.auth_count = 0
+        self.password_auth_count = 0
 
     def get_allowed_auths(self, username):
-        return "publickey"
+        return "publickey,password"
+
+    def check_auth_password(self, username, password):
+        self.password_auth_count += 1
+        return (
+            paramiko.AUTH_SUCCESSFUL
+            if username == "root" and password == "loopback-only-password"
+            else paramiko.AUTH_FAILED
+        )
 
     def check_auth_publickey(self, username, key):
         self.auth_count += 1
@@ -187,3 +197,50 @@ def test_encrypted_private_key_uses_backend_passphrase(ssh_server, tmp_path):
         Settings(tmp_path, (), ssh_key_passphrase="local-test-passphrase")
     ).check(config)
     assert report["success"], report
+
+
+def test_password_login_without_key_or_deployment_paths(ssh_server, tmp_path):
+    config, server, root = ssh_server
+    selected = config.model_copy(
+        update={
+            "auth_mode": "password",
+            "private_key_path": "",
+            "work_dir": "/missing-dir",
+            "algorithm_entry": "",
+            "pcn_checkpoint": "",
+            "pdlts_checkpoint": "",
+        }
+    )
+    report = AutoDLConnector(Settings(tmp_path, ())).check(
+        selected, SecretStr("loopback-only-password"), scope="connection"
+    )
+    assert report["success"], report
+    assert report["code"] == "connected"
+    assert len(report["checks"]) == 2
+    assert server.password_auth_count > 0
+    assert server.auth_count == 0
+    assert list((root / "jobs").iterdir()) == []
+
+
+def test_password_authentication_failure_is_sanitized(ssh_server, tmp_path):
+    config, _, _ = ssh_server
+    report = AutoDLConnector(Settings(tmp_path, ())).check(
+        config.model_copy(update={"auth_mode": "password", "private_key_path": ""}),
+        SecretStr("wrong-sensitive-password"),
+        scope="connection",
+    )
+    assert report["code"] == "authentication"
+    assert "wrong-sensitive-password" not in json.dumps(report)
+
+
+def test_password_is_not_sent_to_untrusted_server(ssh_server, tmp_path):
+    config, server, _ = ssh_server
+    report = AutoDLConnector(Settings(tmp_path, ())).check(
+        config.model_copy(
+            update={"auth_mode": "password", "private_key_path": "", "host_fingerprint": ""}
+        ),
+        SecretStr("loopback-only-password"),
+        scope="connection",
+    )
+    assert report["code"] == "host_key_untrusted"
+    assert server.password_auth_count == 0

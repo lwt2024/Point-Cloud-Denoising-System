@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 
 import paramiko
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from app.config import Settings
 
@@ -69,8 +69,8 @@ class RemoteConfig(BaseModel):
     @field_validator("auth_mode")
     @classmethod
     def auth_valid(cls, value):
-        if value != "key":
-            raise ValueError("Use SSH private-key authentication")
+        if value not in {"key", "password"}:
+            raise ValueError("Use SSH password or private-key authentication")
         return value
 
     @field_validator("host_fingerprint")
@@ -116,6 +116,20 @@ class RemoteError(Exception):
         self.message = message
         self.fingerprint = fingerprint
         super().__init__(message)
+
+
+class ConnectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    password: SecretStr | None = Field(default=None, max_length=4096)
+    config: RemoteConfig | None = None
+    scope: str = "deployment"
+
+    @field_validator("scope")
+    @classmethod
+    def scope_valid(cls, value):
+        if value not in {"connection", "deployment"}:
+            raise ValueError("Invalid check scope")
+        return value
 
 
 def fingerprint(key) -> str:
@@ -203,7 +217,9 @@ class AutoDLConnector:
         self.settings = settings
         self.client_factory = client_factory
 
-    def check(self, config: RemoteConfig) -> dict:
+    def check(
+        self, config: RemoteConfig, password: SecretStr | None = None, scope: str = "deployment"
+    ) -> dict:
         checks = []
         started = time.monotonic()
         client = None
@@ -237,12 +253,17 @@ class AutoDLConnector:
                 "allow_agent": False,
                 "look_for_keys": False,
             }
-            key_path = Path(config.private_key_path).expanduser()
-            if not config.private_key_path or not key_path.is_file():
-                raise RemoteError("key_missing", "SSH 私钥文件不存在，请填写本机私钥文件路径。")
-            kwargs.update(
-                key_filename=str(key_path), passphrase=self.settings.ssh_key_passphrase or None
-            )
+            if config.auth_mode == "password":
+                if password is None or not password.get_secret_value():
+                    raise RemoteError("password_missing", "请在页面输入 SSH 登录密码。")
+                kwargs["password"] = password.get_secret_value()
+            else:
+                key_path = Path(config.private_key_path).expanduser()
+                if not config.private_key_path or not key_path.is_file():
+                    raise RemoteError("key_missing", "SSH 私钥文件不存在，请填写本机私钥文件路径。")
+                kwargs.update(
+                    key_filename=str(key_path), passphrase=self.settings.ssh_key_passphrase or None
+                )
             client.connect(**kwargs)
             # Also enforce explicit pin if a known_hosts entry was used.
             if config.host_fingerprint:
@@ -254,6 +275,17 @@ class AutoDLConnector:
             with client.open_sftp() as sftp:
                 sftp.get_channel().settimeout(OPERATION_TIMEOUT)
                 checks.append({"id": stage, "label": "SFTP 通道", "status": "passed"})
+                if scope == "connection":
+                    if expired.is_set():
+                        raise RemoteError("check_timeout", "连接检查超时，请重试。")
+                    return {
+                        "success": True,
+                        "code": "connected",
+                        "scope": scope,
+                        "message": "服务器身份核验、SSH 登录认证与 SFTP 连接通过；尚未检查算法部署。",
+                        "checks": checks,
+                        "duration_ms": round((time.monotonic() - started) * 1000),
+                    }
                 stage = "work_dir"
                 if not config.work_dir:
                     raise RemoteError("work_dir_missing", "请填写远端任务工作目录。")
@@ -319,6 +351,7 @@ class AutoDLConnector:
             checks.append({"id": "timeout", "label": "总检查时限", "status": "failed"})
         return {
             **result,
+            "scope": scope,
             "checks": checks,
             "duration_ms": round((time.monotonic() - started) * 1000),
         }
@@ -416,19 +449,24 @@ class RemoteStore:
                 return "untested"
             if time.time() - report.get("checked_epoch", 0) > CHECK_TTL:
                 return "stale"
-            return "ready" if report.get("success") else "failed"
+            if not report.get("success"):
+                return "failed"
+            return "connected" if report.get("scope") == "connection" else "ready"
         except (ValueError, OSError):
             return "invalid"
 
-    def test(self):
+    def test(self, password: SecretStr | None = None, scope="deployment", config_override=None):
         if not self.lock.acquire(blocking=False):
             raise RemoteError("busy", "已有连接测试正在进行，请稍后重试。")
         try:
-            config = self.read()
+            config = config_override or self.read()
             if not config:
                 raise RemoteError("not_configured", "请先保存 AutoDL 连接配置。")
+            if config_override:
+                atomic_json(self.path, config.model_dump())
+                self.report_path.unlink(missing_ok=True)
             self.testing = True
-            report = self.connector.check(config)
+            report = self.connector.check(config, password=password, scope=scope)
             report.update(
                 checked_at=datetime.now(UTC).isoformat(),
                 checked_epoch=time.time(),
