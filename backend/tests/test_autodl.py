@@ -4,6 +4,7 @@ import shlex
 import stat
 import threading
 import time
+from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -25,7 +26,18 @@ from app.config import Settings
 from app.main import create_app
 
 TOKEN = "test-admin-token-" + "a" * 32
-HEADERS = {"Authorization": "Bearer " + TOKEN}
+HEADERS = {"X-PCDS-CSRF": "1"}
+
+
+@contextmanager
+def admin_client(app):
+    with TestClient(app) as client:
+        client.headers.update(HEADERS)
+        response = client.post(
+            "/api/auth/login", json={"username": "admin", "password": "test-admin-password-2026"}
+        )
+        assert response.status_code == 200
+        yield client
 
 
 def config(**changes):
@@ -46,7 +58,9 @@ def config(**changes):
 
 
 def settings(tmp_path):
-    return Settings(tmp_path, ("http://localhost:5173",), TOKEN)
+    return Settings(
+        tmp_path, ("http://localhost:5173",), TOKEN, admin_password="test-admin-password-2026"
+    )
 
 
 @pytest.mark.parametrize(
@@ -81,7 +95,7 @@ def test_host_key_is_never_automatically_trusted():
         PinnedHostKey("SHA256:" + "A" * 43).missing_host_key(None, "host", key)
 
 
-def test_all_admin_routes_require_token(tmp_path):
+def test_all_admin_routes_require_session(tmp_path):
     with TestClient(create_app(settings(tmp_path))) as client:
         for method, path in [
             ("GET", "/api/admin/autodl"),
@@ -94,6 +108,14 @@ def test_all_admin_routes_require_token(tmp_path):
             == 401
         )
         assert (
+            client.post(
+                "/api/auth/login",
+                headers=HEADERS,
+                json={"username": "admin", "password": "test-admin-password-2026"},
+            ).status_code
+            == 200
+        )
+        assert (
             client.get(
                 "/api/admin/autodl", headers={**HEADERS, "Origin": "https://evil.invalid"}
             ).status_code
@@ -104,7 +126,7 @@ def test_all_admin_routes_require_token(tmp_path):
 
 def test_missing_admin_configuration_is_closed(tmp_path):
     with TestClient(create_app(Settings(tmp_path, ()))) as client:
-        assert client.get("/api/admin/autodl", headers=HEADERS).status_code == 503
+        assert client.get("/api/admin/autodl", headers=HEADERS).status_code == 401
         assert client.get("/api/capabilities").json()["remote_ready"] is False
 
 
@@ -119,7 +141,7 @@ def test_api_config_persistence_invalidation_and_safe_status(tmp_path):
         "duration_ms": 1,
     }
     app.state.remote.connector = connector
-    with TestClient(app) as client:
+    with admin_client(app) as client:
         saved = client.put("/api/admin/autodl", headers=HEADERS, json=config().model_dump())
         assert saved.json()["status"] == "untested"
         tested = client.post("/api/admin/autodl/test", headers=HEADERS)
@@ -131,7 +153,7 @@ def test_api_config_persistence_invalidation_and_safe_status(tmp_path):
         assert "keyfile" not in json.dumps(public)
         client.put("/api/admin/autodl", headers=HEADERS, json=config(port=2222).model_dump())
         assert client.get("/api/capabilities").json()["remote_ready"] is False
-    with TestClient(create_app(settings(tmp_path))) as restarted:
+    with admin_client(create_app(settings(tmp_path))) as restarted:
         assert restarted.get("/api/admin/autodl", headers=HEADERS).json()["config"]["port"] == 2222
 
 
@@ -282,7 +304,7 @@ def test_password_request_never_persists_or_returns_password(tmp_path):
     }
     app.state.remote.connector = connector
     secret = "request-only-sensitive-password"
-    with TestClient(app) as client:
+    with admin_client(app) as client:
         result = client.post(
             "/api/admin/autodl/test",
             headers=HEADERS,
@@ -303,7 +325,7 @@ def test_password_request_never_persists_or_returns_password(tmp_path):
 
 
 def test_invalid_secret_is_not_echoed_by_validation(tmp_path):
-    with TestClient(create_app(settings(tmp_path))) as client:
+    with admin_client(create_app(settings(tmp_path))) as client:
         secret = "must-not-be-reflected"
         response = client.post(
             "/api/admin/autodl/test", headers=HEADERS, json={"password": {"secret": secret}}

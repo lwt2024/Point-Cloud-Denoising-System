@@ -13,8 +13,11 @@ ROOT = Path(__file__).resolve().parents[2]
 class Settings:
     storage_dir: Path
     cors_origins: tuple[str, ...]
-    admin_token: str = ""
+    admin_token: str = ""  # Legacy configuration field; never used for authentication.
     ssh_key_passphrase: str = ""
+    admin_username: str = "admin"
+    admin_password: str = ""
+    cookie_secure: bool = False
 
 
 def load_settings() -> Settings:
@@ -28,4 +31,7 @@ def load_settings() -> Settings:
         tuple(x.strip() for x in origins.split(",") if x.strip()),
         os.getenv("PCDS_ADMIN_TOKEN", ""),
         os.getenv("AUTODL_KEY_PASSPHRASE", ""),
+        os.getenv("PCDS_ADMIN_USERNAME", "admin"),
+        os.getenv("PCDS_ADMIN_PASSWORD", ""),
+        os.getenv("PCDS_COOKIE_SECURE", "false").lower() == "true",
     )

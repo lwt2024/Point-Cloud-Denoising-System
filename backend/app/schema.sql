@@ -10,6 +10,19 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS single_admin ON users(role) WHERE role = 'admin';
 
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at REAL NOT NULL,
+    expires_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sessions_by_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS auth_attempts (
+    bucket TEXT PRIMARY KEY,
+    started_at REAL NOT NULL,
+    count INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),

@@ -21,6 +21,7 @@ import {
   Grid2X2,
   Layers3,
   LoaderCircle,
+  LogOut,
   Maximize,
   Move3D,
   Play,
@@ -34,7 +35,12 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { getCapabilities, remoteStatusLabels, type Capabilities } from "./api";
+import {
+  getCapabilities,
+  remoteStatusLabels,
+  type AuthUser,
+  type Capabilities,
+} from "./api";
 import AutoDLSettings from "./AutoDLSettings";
 import { formatBytes, type CloudData } from "./cloud";
 import PointViewer from "./PointViewer";
@@ -43,7 +49,25 @@ type Slot = "input" | "reference";
 type View = "original" | "probability" | "result";
 const stages = ["上传文件", "排队等待", "远程执行", "下载结果", "评估完成"];
 
-export default function App() {
+export default function App({
+  user,
+  onLogout,
+}: {
+  user: AuthUser;
+  onLogout: () => Promise<void>;
+}) {
+  const [logoutBusy, setLogoutBusy] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+  async function logout() {
+    setLogoutBusy(true);
+    setLogoutError("");
+    try {
+      await onLogout();
+    } catch {
+      setLogoutError("退出失败，请检查连接后重试。");
+      setLogoutBusy(false);
+    }
+  }
   const [page, setPage] = useState("点云处理");
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [connection, setConnection] = useState<
@@ -230,18 +254,22 @@ export default function App() {
             { title: "点云处理", icon: Box },
             { title: "任务记录", icon: FolderClock },
             { title: "系统设置", icon: Settings2 },
-          ].map(({ title, icon: Icon }) => (
-            <button
-              key={title}
-              className={`nav-item ${page === title ? "active" : ""}`}
-              aria-current={page === title ? "page" : undefined}
-              onClick={() => setPage(title)}
-            >
-              <Icon size={19} />
-              <span>{title}</span>
-              {page === title && <ChevronRight size={15} />}
-            </button>
-          ))}
+          ]
+            .filter(
+              (item) => item.title !== "系统设置" || user.role === "admin",
+            )
+            .map(({ title, icon: Icon }) => (
+              <button
+                key={title}
+                className={`nav-item ${page === title ? "active" : ""}`}
+                aria-current={page === title ? "page" : undefined}
+                onClick={() => setPage(title)}
+              >
+                <Icon size={19} />
+                <span>{title}</span>
+                {page === title && <ChevronRight size={15} />}
+              </button>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="service-card" role="status" aria-label="服务状态">
@@ -273,10 +301,29 @@ export default function App() {
             <span className="avatar">
               <Terminal size={18} />
             </span>
-            <div>
-              本地工作空间<small>开发预览 · v0.1</small>
+            <div className="user-identity">
+              <strong title={user.username}>{user.username}</strong>
+              <small>{user.role === "admin" ? "管理员" : "普通用户"}</small>
             </div>
+            <button
+              className="icon-button"
+              aria-label="退出登录"
+              title="退出登录"
+              disabled={logoutBusy}
+              onClick={() => void logout()}
+            >
+              {logoutBusy ? (
+                <LoaderCircle className="spin" size={16} />
+              ) : (
+                <LogOut size={16} />
+              )}
+            </button>
           </div>
+          {logoutError && (
+            <p className="logout-error" role="alert">
+              {logoutError}
+            </p>
+          )}
         </div>
       </aside>
       <div className="main-shell">
@@ -289,8 +336,22 @@ export default function App() {
             <span />
             本地运行
           </span>
+          <button
+            className="mobile-logout"
+            aria-label="退出登录"
+            disabled={logoutBusy}
+            onClick={() => void logout()}
+          >
+            <LogOut size={15} />
+            退出登录
+          </button>
         </div>
         <main>
+          {logoutError && (
+            <p className="mobile-logout-error" role="alert">
+              {logoutError}
+            </p>
+          )}
           <header className="page-header">
             <div>
               <div className="eyebrow">
@@ -313,7 +374,7 @@ export default function App() {
               操作指南
             </button>
           </header>
-          {page === "系统设置" ? (
+          {page === "系统设置" && user.role === "admin" ? (
             <AutoDLSettings
               onChange={() => setConnectionRevision((value) => value + 1)}
             />

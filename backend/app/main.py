@@ -1,13 +1,11 @@
-import hmac
 from contextlib import asynccontextmanager
-from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.auth import AuthService
 from app.autodl import ConnectionRequest, RemoteConfig, RemoteError, RemoteStore
 from app.config import Settings, load_settings
 from app.database import initialize_database
@@ -18,20 +16,32 @@ from app.pointcloud import INPUT_POINTS, MAX_BYTES
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
     remote = RemoteStore(settings)
+    auth = AuthService(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         initialize_database(settings.storage_dir)
+        auth.ensure_admin()
         yield
 
     app = FastAPI(title="Point Cloud Denoising System", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
+        allow_credentials=True,
         allow_methods=["GET", "PUT", "POST"],
-        allow_headers=["Content-Type", "Authorization"],
+        allow_headers=["Content-Type", "X-PCDS-CSRF"],
     )
     app.state.remote = remote
+    app.state.auth = auth
+    app.include_router(auth.router())
+
+    @app.middleware("http")
+    async def prevent_auth_caching(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.exception_handler(RequestValidationError)
     async def safe_validation_error(request: Request, error: RequestValidationError):
@@ -41,32 +51,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             content={
                 "detail": {
                     "code": "validation",
-                    "message": "配置格式无效，请检查主机、端口及输入字段。",
+                    "message": "用户名需为 3–32 位字母、数字、下划线、点或短横线，密码需为 10–128 位。"
+                    if request.url.path.startswith("/api/auth/")
+                    else "配置格式无效，请检查主机、端口及输入字段。",
                 }
             },
         )
 
-    bearer = HTTPBearer(auto_error=False)
-
-    def require_admin(
-        request: Request,
-        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-    ):
-        if len(settings.admin_token) < 32:
-            raise HTTPException(
-                503,
-                detail={
-                    "code": "admin_not_configured",
-                    "message": "请先在本机运行管理员初始化命令并重启后端。",
-                },
-            )
-        if not credentials or not hmac.compare_digest(
-            credentials.credentials.encode("utf-8"), settings.admin_token.encode("utf-8")
-        ):
-            raise HTTPException(401, detail={"code": "unauthorized", "message": "管理员令牌无效。"})
-        origin = request.headers.get("origin")
-        if origin and origin not in settings.cors_origins:
-            raise HTTPException(403, detail={"code": "origin", "message": "该页面来源未获授权。"})
+    require_admin = auth.require_admin
 
     def remote_operation(operation):
         try:
@@ -137,7 +129,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "remote_ready": remote_status == "ready",
             "remote_connection": {"status": remote_status},
             "features": {
-                "authentication": False,
+                "authentication": True,
                 "upload": False,
                 "denoising": False,
                 "remote_connection": True,

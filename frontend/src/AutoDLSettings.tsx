@@ -6,14 +6,12 @@ import {
   Fingerprint,
   KeyRound,
   LoaderCircle,
-  LockKeyhole,
   PlugZap,
   Save,
   Server,
   ShieldCheck,
 } from "lucide-react";
 import {
-  AdminApiError,
   remoteRequest,
   remoteStatusLabels,
   type RemoteConfig,
@@ -41,7 +39,6 @@ const initialConfig: RemoteConfig = {
 };
 
 export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
-  const [token, setToken] = useState("");
   const [snapshot, setSnapshot] = useState<RemoteSnapshot | null>(null);
   const [form, setForm] = useState<RemoteConfig>(initialConfig);
   const [saved, setSaved] = useState<RemoteConfig | null>(null);
@@ -52,7 +49,6 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
   const [commandError, setCommandError] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [bootstrap, setBootstrap] = useState(false);
   const [message, setMessage] = useState("");
   const [pinConfirmed, setPinConfirmed] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -78,10 +74,8 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
     setBusy(action);
     setError("");
     setMessage("");
-    setBootstrap(false);
     try {
       const data = await remoteRequest(
-        token.trim(),
         action === "load" ? "GET" : action === "save" ? "PUT" : "POST",
         action === "save" ? form : undefined,
         action === "test" || action === "connect"
@@ -124,15 +118,14 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
         );
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "无法访问本地后端");
-      if (
-        failure instanceof AdminApiError &&
-        failure.code === "admin_not_configured"
-      )
-        setBootstrap(true);
     } finally {
       setBusy(null);
     }
   }
+  useEffect(() => {
+    void request("load");
+  }, []);
+
   function field(
     name: keyof RemoteConfig,
     label: string,
@@ -198,74 +191,23 @@ export default function AutoDLSettings({ onChange }: { onChange: () => void }) {
       {!snapshot ? (
         <section className="card connection-auth">
           <h2>
-            <LockKeyhole size={18} />
-            管理员验证
+            <LoaderCircle size={18} className={busy ? "spin" : ""} />
+            读取管理员连接配置
           </h2>
-          <p>
-            连接配置仅向管理员开放。输入本机 .env 中的
-            PCDS_ADMIN_TOKEN，令牌仅在当前页面内存中使用。
-          </p>
-          <form onSubmit={(event) => void request("load", event)}>
-            <label className="connection-field">
-              <span>管理员访问令牌</span>
-              <input
-                className="text-input"
-                aria-label="管理员访问令牌"
-                type="password"
-                autoComplete="off"
-                required
-                value={token}
-                onChange={(event) => setToken(event.target.value)}
-                placeholder="粘贴本机管理员令牌"
-              />
-            </label>
-            <button className="primary" disabled={!!busy || !token.trim()}>
-              {busy ? (
-                <LoaderCircle size={16} className="spin" />
-              ) : (
-                <KeyRound size={16} />
-              )}
-              验证并打开配置
+          <p>当前操作使用已登录的管理员会话。</p>
+          {!busy && (
+            <button className="secondary" onClick={() => void request("load")}>
+              重新加载
             </button>
-          </form>
-          <details open={bootstrap}>
-            <summary>首次使用：初始化管理员令牌</summary>
-            <p>
-              在项目根目录执行以下命令，再重启后端。令牌保存在本机
-              .env，命令不会打印令牌。Windows 请使用 Python 3.12+ 的虚拟环境。
-            </p>
-            <code>python -m pip install -e ./backend</code>
-            <code>python -m app.bootstrap</code>
-            <p>
-              用本机编辑器打开 .env，复制 PCDS_ADMIN_TOKEN
-              的值。请勿将令牌或私钥内容发到聊天或提交至仓库。
-            </p>
-          </details>
+          )}
         </section>
       ) : (
         <>
           <div className="connection-session">
             <span>
               <ShieldCheck size={16} />
-              管理员验证已通过
+              管理员会话已验证
             </span>
-            <button
-              className="secondary"
-              disabled={!!busy}
-              onClick={() => {
-                setSnapshot(null);
-                setToken("");
-                setPassword("");
-                setSshCommand("");
-                setCommandError("");
-                setForm(initialConfig);
-                setSaved(null);
-                setMessage("");
-                setError("");
-              }}
-            >
-              锁定配置
-            </button>
           </div>
           <form onSubmit={(event) => void request("save", event)}>
             <section className="card connection-section">

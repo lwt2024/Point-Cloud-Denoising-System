@@ -6,11 +6,11 @@
 
 当前已实现点云处理主页面、本地三维预览及 AutoDL 连接配置和检测，尚未实现端到端远端去噪。
 
-已完成：React + TypeScript 主页面、Three.js 交互点云预览、浏览器 Worker 流式 XYZ 校验、可选 GT 和坐标确认、文件摘要与包围盒、API 健康检查与能力说明、SQLite 初始表结构、任务状态约束、测试和 CI。
+已完成：账号注册/登录/退出、普通用户与管理员权限、持久化登录会话、React + TypeScript 主页面、Three.js 交互点云预览、浏览器 Worker 流式 XYZ 校验、可选 GT 和坐标确认、文件摘要与包围盒、API 健康检查与能力说明、SQLite 初始表结构、任务状态约束、测试和 CI。详见 [账号使用说明](docs/authentication.md)。
 
-AutoDL：系统设置页使用本机管理员令牌保护，支持直接粘贴 SSH 命令并输入密码，自动解析主机/端口/用户名。密码只随本次请求发送，不保存、不回传；连接验证不要求部署路径。另提供已核验服务器指纹 / known_hosts、SFTP 写入回读与清理、目录、Python 3、入口语法、模型文件和版本检查。检测状态有效期为 5 分钟。详见 [AutoDL 接入指南](docs/autodl-setup.md)。
+AutoDL：系统设置页使用已登录的管理员会话保护，不再输入管理员令牌。支持直接粘贴 SSH 命令并输入密码，自动解析主机/端口/用户名。SSH 密码只随本次请求发送，不保存、不回传；连接验证不要求部署路径。另提供已核验服务器指纹 / known_hosts、SFTP 写入回读与清理、目录、Python 3、入口语法、模型文件和版本检查。检测状态有效期为 5 分钟。详见 [AutoDL 接入指南](docs/autodl-setup.md)。
 
-待完成：完整用户注册登录及权限隔离、上传接口、持久化任务操作、串行 worker、SSH 任务启动/查询/停止与 SFTP 产物传输、算法产物校验、真实概率/结果视图及并排同步比较、指标计算、清理与重启恢复。当前文件选择仅做浏览器本地校验，不上传、不持久保存；开始去噪和下载结果入口禁用，API 不会返回模拟去噪结果或虚构质量指标。
+待完成：用户停用/重置密码的管理员操作页、任务归属与上传接口、持久化任务操作、串行 worker、SSH 任务启动/查询/停止与 SFTP 产物传输、算法产物校验、真实概率/结果视图及并排同步比较、指标计算、清理与重启恢复。当前文件选择仅做浏览器本地校验，不上传、不持久保存；开始去噪和下载结果入口禁用，API 不会返回模拟去噪结果或虚构质量指标。
 
 默认三维视图显示明确标注的合成示例，选择有效输入后替换为完整的 140K 点云。支持旋转、缩放、平移、视角重置、点大小、网格/点云显示和全屏。预览居中缩放仅影响绘制，不改动文件坐标；刷新页面后需要重新选择文件。浏览器需支持 WebGL、Web Worker、File.stream 和安全上下文中的 Web Crypto（localhost 可用）。
 
@@ -30,14 +30,15 @@ docs/           # PRD、架构和实施顺序
 
 ## 本地启动
 
-要求 Python 3.12+、Node.js 22 LTS（CI 使用 Node 22）、npm。后端默认仅绑定本机；尚未实现认证前不要对公网暴露。
+要求 Python 3.12+、Node.js 22 LTS（CI 使用 Node 22）、npm。当前部署面向本机，后端仅绑定 127.0.0.1；公网部署与 HTTPS 反向代理尚未配置。
 
 在仓库根目录运行（Windows PowerShell）：
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e './backend[dev]'
+.\.venv\Scripts\python.exe -m app.bootstrap
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --reload
 ```
 
@@ -50,6 +51,7 @@ npm run dev
 ```
 
 打开 <http://localhost:5173>。API 文档：<http://127.0.0.1:8000/docs>。
+首次管理员用户名与初始密码从本机 `.env` 的 `PCDS_ADMIN_USERNAME` / `PCDS_ADMIN_PASSWORD` 获取；普通用户可在登录页注册。网站账号密码与 AutoDL SSH 密码相互独立。
 Linux/macOS 使用 `.venv/bin/python` 替代 `.venv\Scripts\python.exe`。
 Vite 开发服务将 `/api` 转发到本地后端；生产部署的静态托管和代理尚未配置。
 

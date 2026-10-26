@@ -1,3 +1,27 @@
+export interface AuthUser {
+  id: string;
+  username: string;
+  role: "user" | "admin";
+}
+export async function authRequest(
+  action: "me" | "login" | "register" | "logout",
+  credentials?: { username: string; password: string },
+): Promise<{ user?: AuthUser; message?: string }> {
+  const response = await fetch(`/api/auth/${action}`, {
+    method: action === "me" ? "GET" : "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", "X-PCDS-CSRF": "1" },
+    body: credentials ? JSON.stringify(credentials) : undefined,
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok)
+    throw new AdminApiError(
+      data?.detail?.code || "request_failed",
+      data?.detail?.message || "服务暂不可用，请确认本地后端已启动。",
+    );
+  return data;
+}
+
 export interface Capabilities {
   phase: string;
   input: { extension: string; point_count: number; max_bytes: number };
@@ -73,7 +97,6 @@ export class AdminApiError extends Error {
   }
 }
 export async function remoteRequest(
-  token: string,
   method: "GET" | "PUT" | "POST",
   config?: RemoteConfig,
   connection?: {
@@ -86,8 +109,9 @@ export async function remoteRequest(
     `/api/admin/autodl${method === "POST" ? "/test" : ""}`,
     {
       method,
+      credentials: "include",
       headers: {
-        Authorization: `Bearer ${token}`,
+        "X-PCDS-CSRF": "1",
         "Content-Type": "application/json",
       },
       body:
@@ -100,6 +124,8 @@ export async function remoteRequest(
   );
   const data = await response.json().catch(() => null);
   if (!response.ok) {
+    if (response.status === 401)
+      window.dispatchEvent(new Event("pcds:unauthorized"));
     throw new AdminApiError(
       data?.detail?.code || "request_failed",
       typeof data?.detail?.message === "string"
