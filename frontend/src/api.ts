@@ -4,7 +4,98 @@ export interface Capabilities {
   task_statuses: string[];
   algorithm: string;
   remote_ready: boolean;
+  remote_connection?: { status: RemoteStatus };
   features: { authentication: boolean; upload: boolean; denoising: boolean };
+}
+
+export type RemoteStatus =
+  | "unconfigured"
+  | "untested"
+  | "testing"
+  | "ready"
+  | "failed"
+  | "stale"
+  | "invalid";
+export const remoteStatusLabels: Record<RemoteStatus, string> = {
+  unconfigured: "未配置",
+  untested: "待测试",
+  testing: "检查中",
+  ready: "检查通过",
+  failed: "检查失败",
+  stale: "需重新测试",
+  invalid: "配置异常",
+};
+export interface RemoteConfig {
+  host: string;
+  port: number;
+  username: string;
+  auth_mode: "key";
+  private_key_path: string;
+  known_hosts_path: string;
+  host_fingerprint: string;
+  work_dir: string;
+  python_path: string;
+  algorithm_entry: string;
+  pcn_checkpoint: string;
+  pdlts_checkpoint: string;
+  algorithm_version: string;
+  model_version: string;
+  config_version: string;
+}
+export interface RemoteReport {
+  success: boolean;
+  code: string;
+  message: string;
+  fingerprint?: string;
+  checked_at: string;
+  duration_ms: number;
+  checks: {
+    id: string;
+    label: string;
+    status: "passed" | "failed";
+    message?: string;
+  }[];
+}
+export interface RemoteSnapshot {
+  config: RemoteConfig | null;
+  status: RemoteStatus;
+  last_check: RemoteReport | null;
+  passphrase_configured: boolean;
+}
+export class AdminApiError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+export async function remoteRequest(
+  token: string,
+  method: "GET" | "PUT" | "POST",
+  config?: RemoteConfig,
+): Promise<RemoteSnapshot> {
+  const response = await fetch(
+    `/api/admin/autodl${method === "POST" ? "/test" : ""}`,
+    {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: config ? JSON.stringify(config) : undefined,
+    },
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new AdminApiError(
+      data?.detail?.code || "request_failed",
+      typeof data?.detail?.message === "string"
+        ? data.detail.message
+        : "配置格式无效或服务不可用，请检查必填项与路径格式。",
+    );
+  }
+  return data;
 }
 
 export async function getCapabilities(

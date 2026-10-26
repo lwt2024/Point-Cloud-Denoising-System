@@ -34,7 +34,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { getCapabilities, type Capabilities } from "./api";
+import { getCapabilities, remoteStatusLabels, type Capabilities } from "./api";
+import AutoDLSettings from "./AutoDLSettings";
 import { formatBytes, type CloudData } from "./cloud";
 import PointViewer from "./PointViewer";
 
@@ -67,6 +68,7 @@ export default function App() {
   const input = useRef<HTMLInputElement>(null);
   const gtInput = useRef<HTMLInputElement>(null);
   const viewer = useRef<HTMLDivElement>(null);
+  const [connectionRevision, setConnectionRevision] = useState(0);
   const helpDialog = useRef<HTMLElement>(null);
   const helpTrigger = useRef<HTMLElement | null>(null);
   function openHelp(trigger: HTMLElement) {
@@ -102,16 +104,22 @@ export default function App() {
   }, [help]);
   useEffect(() => {
     const controller = new AbortController();
-    getCapabilities(controller.signal)
-      .then((data) => {
-        setCapabilities(data);
-        setConnection("online");
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setConnection("offline");
-      });
-    return () => controller.abort();
-  }, []);
+    const refresh = () =>
+      getCapabilities(controller.signal)
+        .then((data) => {
+          setCapabilities(data);
+          setConnection("online");
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setConnection("offline");
+        });
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 15000);
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+    };
+  }, [connectionRevision]);
   useEffect(
     () => () => {
       Object.values(workers.current).forEach((worker) => worker?.terminate());
@@ -192,7 +200,9 @@ export default function App() {
     ? "请先选择并校验输入点云"
     : reference && !confirmed
       ? "请确认参考点云的坐标系、单位与尺度"
-      : "远端任务服务尚未接入";
+      : capabilities?.remote_ready
+        ? "连接检查已通过，任务提交功能待接入"
+        : "请在系统设置中配置并测试 AutoDL";
 
   return (
     <div className="app-shell">
@@ -255,18 +265,18 @@ export default function App() {
               <span>AutoDL 去噪</span>
               <small>
                 {connection === "online"
-                  ? capabilities?.remote_ready
-                    ? "已就绪"
-                    : "未接入"
+                  ? remoteStatusLabels[
+                      capabilities?.remote_connection?.status || "unconfigured"
+                    ]
                   : connection === "loading"
                     ? "检查中"
                     : "状态未知"}
               </small>
             </div>
             <p>
-              {connection === "online" && !capabilities?.remote_ready
-                ? "当前可在本地校验与预览"
-                : "独立于本地后端的远端算法"}
+              {capabilities?.remote_ready
+                ? "最近检测通过，有效期 5 分钟"
+                : "在系统设置中配置并测试"}
             </p>
           </div>
           <div className="local-user">
@@ -293,9 +303,17 @@ export default function App() {
         <main>
           <header className="page-header">
             <div>
-              <div className="eyebrow">POINT CLOUD PROCESSING</div>
+              <div className="eyebrow">
+                {page === "系统设置"
+                  ? "REMOTE CONNECTION"
+                  : "POINT CLOUD PROCESSING"}
+              </div>
               <h1>{page}</h1>
-              <p>从原始点云到清晰结构，完成连续概率引导的两阶段去噪。</p>
+              <p>
+                {page === "系统设置"
+                  ? "管理 AutoDL 连接，核验远端环境与算法部署。"
+                  : "从原始点云到清晰结构，完成连续概率引导的两阶段去噪。"}
+              </p>
             </div>
             <button
               className="secondary"
@@ -305,7 +323,11 @@ export default function App() {
               操作指南
             </button>
           </header>
-          {page !== "点云处理" ? (
+          {page === "系统设置" ? (
+            <AutoDLSettings
+              onChange={() => setConnectionRevision((value) => value + 1)}
+            />
+          ) : page !== "点云处理" ? (
             <section className="empty-page card">
               <div className="empty-icon">
                 {page === "任务记录" ? <FolderClock /> : <Settings2 />}

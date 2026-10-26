@@ -1,0 +1,260 @@
+.autodl-settings {
+  max-width: 1050px;
+  padding-bottom: 35px;
+}
+.connection-intro {
+  display: flex;
+  gap: 18px;
+  padding: 24px;
+  margin-bottom: 22px;
+}
+.connection-mark {
+  background: #edf6f2;
+  color: #388674;
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+.autodl-settings h2 {
+  font-size: 17px;
+}
+.autodl-settings p {
+  font-size: 14px;
+  color: #71858e;
+  line-height: 1.9;
+  margin-top: 10px;
+}
+.connection-auth,
+.connection-section,
+.connection-report {
+  padding: 26px;
+  margin-bottom: 22px;
+}
+.connection-auth form {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  margin-top: 24px;
+}
+.connection-auth form > label {
+  flex: 1;
+}
+.connection-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  font-size: 14px;
+  color: #5d747e;
+}
+.connection-field i {
+  color: #ba7c57;
+  font-style: normal;
+}
+.connection-field input {
+  height: 44px;
+  font-size: 14px;
+}
+.connection-field input:disabled {
+  background: #f5f8f7;
+}
+.connection-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin-top: 25px;
+}
+.connection-field.full {
+  grid-column: 1 / -1;
+}
+.connection-value {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  min-height: 44px;
+  color: #6e9385;
+}
+.connection-session {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.connection-session > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #67937f;
+  font-size: 14px;
+}
+.connection-badge {
+  background: #eff6f2;
+  color: #5e8e79;
+  border-radius: 5px;
+  padding: 6px 9px;
+  font-size: 13px;
+}
+.connection-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  background: #f4f8f6;
+  padding: 14px;
+  margin-top: 24px;
+  border-radius: 6px;
+  color: #729582;
+}
+.connection-hint p {
+  margin: 0;
+  font-size: 13px;
+}
+.connection-hint svg {
+  margin-top: 4px;
+}
+.autodl-settings .connection-footnote {
+  font-size: 13px;
+  margin-top: 20px;
+}
+.connection-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.connection-actions > span {
+  margin-right: auto;
+  font-size: 13px;
+  color: #8b9b9e;
+}
+.connection-actions button,
+.connection-auth button {
+  min-height: 44px;
+  font-size: 14px;
+}
+.connection-actions .secondary:disabled {
+  color: #a6b7b6;
+  background: #f3f6f5;
+}
+.connection-report .section-heading > span {
+  font-size: 12px;
+  color: #91a2a8;
+}
+.connection-report ul {
+  list-style: none;
+  padding: 0;
+  margin: 22px 0;
+  display: grid;
+  gap: 14px;
+}
+.connection-report li {
+  display: flex;
+  gap: 10px;
+  font-size: 14px;
+  color: #628575;
+}
+.connection-report li.failed {
+  color: #b17b50;
+}
+.connection-report li small {
+  display: block;
+  font-size: 13px;
+  line-height: 1.8;
+  margin-top: 5px;
+}
+.fingerprint-confirm {
+  padding: 20px;
+  border-radius: 8px;
+  background: #fcf8ee;
+  border: 1px solid #e7ddc6;
+}
+.fingerprint-confirm h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15px;
+  color: #8a784f;
+  margin-bottom: 15px;
+}
+.fingerprint-confirm label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #8a7f65;
+  margin: 20px 0;
+}
+.fingerprint-confirm input {
+  margin-top: 5px;
+  accent-color: #388775;
+}
+.fingerprint-confirm button:disabled {
+  opacity: 0.5;
+}
+.connection-message {
+  padding: 16px;
+  border-radius: 7px;
+  border: 1px solid #d5e6dc;
+  color: #4e816a;
+  background: #f0f7f2;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.connection-auth details {
+  border-top: 1px solid #e7ece9;
+  margin-top: 28px;
+  padding-top: 20px;
+}
+.connection-auth summary {
+  font-size: 14px;
+  color: #568574;
+  cursor: pointer;
+}
+.autodl-settings code {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px 14px;
+  margin: 12px 0;
+  background: #edf2ef;
+  color: #54766b;
+  font-size: 13px;
+  line-height: 1.7;
+  border-radius: 5px;
+}
+@media (max-width: 700px) {
+  .connection-auth form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .connection-fields {
+    grid-template-columns: 1fr;
+  }
+  .connection-section,
+  .connection-auth,
+  .connection-report {
+    padding: 20px;
+  }
+  .connection-intro {
+    flex-direction: column;
+  }
+  .connection-actions > span {
+    flex-basis: 100%;
+  }
+  .connection-actions {
+    justify-content: stretch;
+  }
+  .connection-actions button {
+    flex: 1;
+  }
+  .connection-report .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+}

@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 class Settings:
     storage_dir: Path
     cors_origins: tuple[str, ...]
+    admin_token: str = ""
+    ssh_key_passphrase: str = ""
 
 
 def load_settings() -> Settings:
@@ -20,5 +22,10 @@ def load_settings() -> Settings:
     storage = Path(os.getenv("PCDS_STORAGE_DIR", "storage"))
     if not storage.is_absolute():
         storage = ROOT / storage
-    origins = os.getenv("PCDS_CORS_ORIGINS", "http://localhost:5173")
-    return Settings(storage, tuple(x.strip() for x in origins.split(",") if x.strip()))
+    origins = os.getenv("PCDS_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    return Settings(
+        storage,
+        tuple(x.strip() for x in origins.split(",") if x.strip()),
+        os.getenv("PCDS_ADMIN_TOKEN", ""),
+        os.getenv("AUTODL_KEY_PASSPHRASE", ""),
+    )
