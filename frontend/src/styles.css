@@ -201,7 +201,9 @@ nav {
   white-space: nowrap;
 }
 @media (max-width: 1200px) {
-  .service-card .service-hint { font-size: 10px; }
+  .service-card .service-hint {
+    font-size: 10px;
+  }
 }
 .status-dot.pending {
   background: #c99850;
@@ -607,6 +609,151 @@ h2 {
   width: 100%;
   height: 100%;
   position: relative;
+}
+.point-viewer-layout {
+  --camera-rail-width: 118px;
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+.point-viewer-layout .point-canvas {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+.camera-preview-rail {
+  width: var(--camera-rail-width);
+  flex-shrink: 0;
+  padding: 15px 10px 10px;
+  background: #14222beb;
+  border-right: 1px solid #2b3d47;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #38515b transparent;
+}
+.camera-preview-title {
+  color: #aec3c9;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.camera-preview-title small {
+  display: block;
+  font-size: 10px;
+  color: #718d99;
+  margin-top: 5px;
+}
+.camera-preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.camera-preset {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 5px 3px;
+  border-radius: 5px;
+  border: 1px solid #30434e;
+  color: #849da9;
+  background: #1c303b;
+}
+.camera-preset canvas {
+  display: block;
+  width: 100%;
+  height: 33px;
+  pointer-events: none;
+}
+.camera-preset span {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.camera-preset:hover {
+  color: #b5dfd1;
+  border-color: #5c9384;
+  background: #264339;
+}
+.camera-preset[aria-pressed="true"] {
+  color: #b5e2ce;
+  border-color: #75b79d;
+  background: #29473e;
+  box-shadow: inset 0 0 0 1px #75b79d20;
+}
+.camera-preset.default-preset {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  gap: 5px;
+  align-items: center;
+  padding: 5px;
+}
+.camera-preset.default-preset canvas {
+  width: 28px;
+  height: 30px;
+}
+.camera-preset.default-preset span {
+  white-space: nowrap;
+}
+.camera-preset:disabled {
+  opacity: 0.5;
+}
+.camera-view-status {
+  margin-top: 12px;
+  padding-top: 9px;
+  border-top: 1px solid #2a3e47;
+  color: #72978a;
+  font-size: 10px;
+  text-align: center;
+}
+.viewport:has(.point-viewer-layout) .viewport-label {
+  left: 134px;
+  max-width: calc(100% - 280px);
+}
+.viewport-label-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+@media (max-width: 700px) {
+  .point-viewer-layout {
+    --camera-rail-width: 94px;
+  }
+  .camera-preview-rail {
+    padding: 10px 7px;
+  }
+  .camera-preview-title {
+    margin-bottom: 8px;
+  }
+  .camera-view-status {
+    margin-top: 8px;
+    padding-top: 6px;
+  }
+  .camera-preset-grid {
+    gap: 5px;
+  }
+  .camera-preset canvas {
+    height: 28px;
+  }
+  .camera-preset.default-preset {
+    gap: 3px;
+    padding: 4px 2px;
+  }
+  .camera-preset.default-preset canvas {
+    width: 25px;
+    height: 24px;
+  }
+  .camera-preset.default-preset span {
+    font-size: 10px;
+  }
+  .viewport:has(.point-viewer-layout) .viewport-label {
+    left: 104px;
+    top: 13px;
+    max-width: calc(100% - 120px);
+  }
+  .viewport:has(.point-viewer-layout) .cloud-count {
+    top: 31px;
+    font-size: 9px;
+  }
 }
 .point-canvas canvas {
   display: block;

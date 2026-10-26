@@ -612,9 +612,11 @@ export default function App({
                           />
                           <div className="viewport-label">
                             <span className="mini-dot" />
-                            {cloud
-                              ? "输入点云 · 本地预览"
-                              : "合成示例 · 仅供交互体验"}
+                            <span className="viewport-label-text">
+                              {cloud
+                                ? "输入点云 · 本地预览"
+                                : "合成示例 · 仅供交互体验"}
+                            </span>
                           </div>
                           <div className="cloud-count">
                             <Box size={13} />
