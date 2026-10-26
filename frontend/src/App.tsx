@@ -247,22 +247,10 @@ export default function App() {
           <div className="service-card" role="status" aria-label="服务状态">
             <div className="service-title">服务状态</div>
             <div className="service-row">
-              <span className={`status-dot ${connection}`} />
-              <span>本地业务后端</span>
-              <small>
-                {connection === "online"
-                  ? "可访问"
-                  : connection === "loading"
-                    ? "检查中"
-                    : "不可访问"}
-              </small>
-            </div>
-            <p>提供网页所需的业务接口</p>
-            <div className="service-row">
               <span
                 className={`status-dot ${connection === "online" && (capabilities?.remote_ready || capabilities?.remote_connection?.status === "connected") ? "online" : "pending"}`}
               />
-              <span>AutoDL 去噪</span>
+              <span>AutoDL服务</span>
               <small>
                 {connection === "online"
                   ? remoteStatusLabels[
@@ -273,11 +261,11 @@ export default function App() {
                     : "状态未知"}
               </small>
             </div>
-            <p>
+            <p className="service-hint">
               {capabilities?.remote_ready
-                ? "最近检测通过，有效期 5 分钟"
+                ? "检测通过，5分钟有效"
                 : capabilities?.remote_connection?.status === "connected"
-                  ? "SSH/SFTP 已验证，部署待检查"
+                  ? "SSH/SFTP通过，待部署"
                   : "在系统设置中配置并测试"}
             </p>
           </div>

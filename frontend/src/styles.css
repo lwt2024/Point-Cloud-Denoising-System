@@ -195,6 +195,14 @@ nav {
 .service-card p:last-child {
   margin-bottom: 0;
 }
+.service-card .service-hint {
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+@media (max-width: 1200px) {
+  .service-card .service-hint { font-size: 10px; }
+}
 .status-dot.pending {
   background: #c99850;
 }
