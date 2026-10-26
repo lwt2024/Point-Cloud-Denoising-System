@@ -1,0 +1,24 @@
+"""Backend-only configuration. No credentials are returned to the browser."""
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+@dataclass(frozen=True)
+class Settings:
+    storage_dir: Path
+    cors_origins: tuple[str, ...]
+
+
+def load_settings() -> Settings:
+    load_dotenv(ROOT / ".env")
+    storage = Path(os.getenv("PCDS_STORAGE_DIR", "storage"))
+    if not storage.is_absolute():
+        storage = ROOT / storage
+    origins = os.getenv("PCDS_CORS_ORIGINS", "http://localhost:5173")
+    return Settings(storage, tuple(x.strip() for x in origins.split(",") if x.strip()))
