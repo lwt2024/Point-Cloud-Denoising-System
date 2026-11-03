@@ -36,8 +36,8 @@
 | 指纹 / known_hosts | 已经独立核验的 SHA256 指纹，或包含对应主机和端口的本机 known_hosts 文件 |
 | 远端任务目录 | 已存在、可写的独立目录，例如 `/root/autodl-tmp/pointcloud-jobs`，不能是 `/` |
 | Python | GPU 环境中 Python 3 的绝对路径；或远端 PATH 中的 `python` / `python3` |
-| 算法入口 | 已部署的连续概率联合去噪脚本绝对路径 |
-| 模型路径 | 两个已经部署的 PCN 与 PD-LTS checkpoint 的绝对路径 |
+| 算法入口 | 已部署的检测、支撑去噪、恢复与修正统一入口绝对路径 |
+| 模型路径 | 已部署的 PCN 与 PD-LTS checkpoint 路径；恢复网络权重与规则暂由统一入口管理，独立配置字段待接入 |
 | 版本摘要 | 实际部署的算法、模型、固定配置版本，不能用未确认版本冒充就绪 |
 
 配置通过管理员接口保存到 `storage/autodl/config.json`。不会自动创建远端目录、部署模型或选择最终 checkpoint；需先在 AutoDL 自行完成部署。

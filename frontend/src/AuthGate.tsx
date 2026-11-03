@@ -181,7 +181,7 @@ function AuthScreen({
           <h1>{mode === "login" ? "登录工作台" : "创建研究账号"}</h1>
           <p className="auth-description">
             {mode === "login"
-              ? "继续你的点云预处理与两阶段去噪工作。"
+              ? "继续你的点云检测、去噪与恢复修正工作。"
               : "创建普通用户账号，开始你的点云处理工作。"}
           </p>
           <div className="auth-tabs" aria-label="账号操作">
@@ -321,7 +321,7 @@ function AuthScreen({
           </div>
         </div>
         <footer className="auth-footer">
-          本地研究工作台<span>PCN + PD-LTS · v0.1</span>
+          本地研究工作台<span>恢复＋修正 · v0.1</span>
         </footer>
       </section>
       <section className="auth-visual-side" aria-label="点云研究工作台介绍">
@@ -336,7 +336,7 @@ function AuthScreen({
             清晰结构。
           </h2>
           <p>
-            连续概率引导，保留完整的不确定性信息。
+            找回可能误删的正常点，再修正它们的位置。
             <br />
             在同一个工作空间中校验、预览与管理点云。
           </p>
@@ -356,13 +356,13 @@ function AuthScreen({
           </svg>
           <div className="auth-cloud-label">
             <Box size={14} />
-            CONTINUOUS PROBABILITY
+            RECOVERY + CORRECTION
           </div>
         </div>
         <div className="auth-visual-footer">
-          <span>01 / PCN 离群检测</span>
+          <span>检测删除 · 支撑去噪</span>
           <ArrowRight size={17} />
-          <span>02 / PD-LTS 自适应去噪</span>
+          <span>恢复判断 · 坐标修正</span>
         </div>
       </section>
     </div>

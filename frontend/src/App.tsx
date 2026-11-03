@@ -46,7 +46,7 @@ import { formatBytes, type CloudData } from "./cloud";
 import PointViewer from "./PointViewer";
 
 type Slot = "input" | "reference";
-type View = "original" | "probability" | "result";
+type View = "original" | "recovery" | "result";
 const stages = ["上传文件", "排队等待", "远程执行", "下载结果", "评估完成"];
 
 export default function App({
@@ -363,7 +363,7 @@ export default function App({
               <p>
                 {page === "系统设置"
                   ? "管理 AutoDL 连接，核验远端环境与算法部署。"
-                  : "从原始点云到清晰结构，完成连续概率引导的两阶段去噪。"}
+                  : "从原始点云到清晰结构，完成结构支撑引导的恢复＋修正。"}
               </p>
             </div>
             <button
@@ -416,7 +416,7 @@ export default function App({
                           [
                             "本地校验与预览",
                             "串行任务队列",
-                            "PCN → PD-LTS",
+                            "检测 → 支撑 → 恢复 → 修正",
                             "完整性校验",
                             "结果与统计",
                           ][i]
@@ -580,8 +580,8 @@ export default function App({
                         [
                           { id: "original", label: "原始点云", icon: Box },
                           {
-                            id: "probability",
-                            label: "离群概率",
+                            id: "recovery",
+                            label: "恢复与修正",
                             icon: Activity,
                           },
                           { id: "result", label: "去噪结果", icon: Sparkles },
@@ -635,14 +635,14 @@ export default function App({
                             <Layers3 size={32} strokeWidth={1.2} />
                           </span>
                           <h3>
-                            {view === "probability"
-                              ? "等待连续离群概率"
+                            {view === "recovery"
+                              ? "等待恢复与修正记录"
                               : "等待去噪结果"}
                           </h3>
                           <p>
                             连接远端算法并完成任务后，将在此显示
-                            {view === "probability"
-                              ? "逐点概率着色与图例"
+                            {view === "recovery"
+                              ? "保留、删除与恢复标记及坐标修正记录"
                               : "真实去噪点云"}
                             。
                           </p>
@@ -852,14 +852,14 @@ export default function App({
                     </p>
                     <div className="divider" />
                     <div className="model-title">
-                      处理方案<span>两阶段联合去噪</span>
+                      处理方案<span>恢复＋修正</span>
                     </div>
                     <div className="model-stages">
                       <div className="model-stage">
                         <span>1</span>
                         <div>
-                          <strong>PCN 离群检测</strong>
-                          <small>逐点连续离群概率</small>
+                          <strong>改进 PCN 检测与删除</strong>
+                          <small>按 0.5 固定阈值删除疑似离群点</small>
                         </div>
                         <Check size={14} />
                       </div>
@@ -867,8 +867,28 @@ export default function App({
                       <div className="model-stage">
                         <span>2</span>
                         <div>
-                          <strong>PD-LTS 自适应去噪</strong>
-                          <small>连续概率引导联合处理</small>
+                          <strong>PD-LTS 结构支撑</strong>
+                          <small>对保留点去噪，形成稳定表面参考</small>
+                        </div>
+                        <Check size={14} />
+                      </div>
+                      <div className="model-connector" />
+                      <div className="model-stage">
+                        <span>3</span>
+                        <div>
+                          <strong>恢复判断</strong>
+                          <small>
+                            根据被删点与支撑邻域的几何关系选择接纳点
+                          </small>
+                        </div>
+                        <Check size={14} />
+                      </div>
+                      <div className="model-connector" />
+                      <div className="model-stage">
+                        <span>4</span>
+                        <div>
+                          <strong>有界坐标修正</strong>
+                          <small>修正接纳点的位置，与支撑点合并输出</small>
                         </div>
                         <Check size={14} />
                       </div>
@@ -880,7 +900,7 @@ export default function App({
                     <div className="method-note">
                       <ShieldCheck size={14} />
                       <p>
-                        内部参数由管理员统一配置，保留所有输入点，不使用硬阈值删点。
+                        恢复补回可能误删的正常点，修正改善其位置；仅选择接纳值得恢复的点，仍可能带回离群点。输出点数可变，内部参数由管理员统一配置。
                       </p>
                     </div>
                     <button
@@ -939,7 +959,7 @@ export default function App({
               <footer>
                 <span>
                   PCN + PD-LTS <i />
-                  连续概率引导的两阶段去噪
+                  结构支撑引导的恢复＋修正
                 </span>
                 <span>研究工作台 · MVP 0.1</span>
               </footer>
@@ -983,7 +1003,7 @@ export default function App({
             <p>3. 可选添加干净参考点云，并确认坐标系、单位、尺度一致。</p>
             <p>
               4.
-              远端任务服务接入后，可提交处理并查看概率、去噪结果与统计。当前版本提供本地校验与预览。
+              远端任务服务接入后，可提交处理并查看恢复记录、最终点云与统计。当前版本提供本地校验与预览。
             </p>
             <button className="primary" onClick={() => setHelp(false)}>
               了解了

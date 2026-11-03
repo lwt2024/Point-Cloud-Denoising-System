@@ -7,7 +7,7 @@
 - SQLite + 本地 storage：账号、任务与事件元数据；点云和日志按随机任务 UUID 分目录存储。
 - 单个 worker：未来从持久化队列串行领取任务，不在 HTTP 请求进程中直接运行 GPU 推理。
 - SSH / SFTP 适配器：未来负责启动、查询、停止、传输；校验服务器 host key，不信任用户提供的远端路径。
-- AutoDL：固定部署版本的连续概率 PCN → PD-LTS。当前仓库不包含训练与权重。
+- AutoDL：固定部署版本的改进 PCN 检测删除 → PD-LTS 支撑去噪 → 恢复判断 → 有界坐标修正。当前仓库不包含训练与权重。
 
 当前公开读取接口为 `/api/health` 和 `/api/capabilities`。新增 `/api/admin/autodl` GET/PUT 及 `/api/admin/autodl/test` POST，均要求登录后的管理员会话，写请求还校验自定义 CSRF 请求头与浏览器 Origin。公开能力接口不返回主机、凭据或私钥路径。
 

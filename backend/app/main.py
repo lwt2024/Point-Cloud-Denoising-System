@@ -125,7 +125,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "phase": "remote-connection",
             "input": {"extension": ".xyz", "point_count": INPUT_POINTS, "max_bytes": MAX_BYTES},
             "task_statuses": [status.value for status in TaskStatus],
-            "algorithm": "PCN continuous probability + PD-LTS",
+            "algorithm": "Improved PCN filtering + PD-LTS support + recovery and bounded correction",
             "remote_ready": remote_status == "ready",
             "remote_connection": {"status": remote_status},
             "features": {
